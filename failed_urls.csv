@@ -1,0 +1,7 @@
+﻿Time,URL,Error
+2025-05-23 22:39:33,chefsplate.com,Command 'ruby bin/wayback_machine_downloader https://chefsplate.com -sl -f 2009 --concurrency 15' returned non-zero exit status 1.
+2025-05-23 22:43:33,minimus.biz,Command 'ruby bin/wayback_machine_downloader https://minimus.biz -sl -f 2009 --concurrency 15' returned non-zero exit status 1.
+2025-05-24 00:41:02,blaircandy.com,Command 'ruby bin/wayback_machine_downloader https://blaircandy.com -sl -f 2009 --concurrency 15' returned non-zero exit status 1.
+2025-05-24 01:05:30,bhcosmetics.com,Command 'ruby bin/wayback_machine_downloader https://bhcosmetics.com -sl -f 2009 --concurrency 15' returned non-zero exit status 1.
+2025-05-24 02:20:21,simplysoles.com,Command 'ruby bin/wayback_machine_downloader https://simplysoles.com -sl -f 2009 --concurrency 15' returned non-zero exit status 1.
+2025-05-24 07:12:31,historicalemporium.com,Command 'ruby bin/wayback_machine_downloader https://historicalemporium.com -sl -f 2009 --concurrency 15' returned non-zero exit status 1.

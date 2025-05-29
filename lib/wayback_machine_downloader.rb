@@ -16,7 +16,7 @@ class WaybackMachineDownloader
 
   VERSION = "2.3.2"
 
-  attr_accessor :base_url, :exact_url, :directory, :all_timestamps,
+  attr_accessor :base_url, :exact_url, :directory, :all_timestamps, :all_timestamps_latest,
     :from_timestamp, :to_timestamp, :only_filter, :exclude_filter, 
     :all, :maximum_pages, :threads_count
 
@@ -25,6 +25,7 @@ class WaybackMachineDownloader
     @exact_url = params[:exact_url]
     @directory = params[:directory]
     @all_timestamps = params[:all_timestamps]
+    @all_timestamps_latest = params[:all_timestamps_latest]
     @from_timestamp = params[:from_timestamp].to_i
     @to_timestamp = params[:to_timestamp].to_i
     @only_filter = params[:only_filter]
@@ -156,10 +157,62 @@ class WaybackMachineDownloader
     file_list_curated
   end
 
+  def get_file_list_all_timestamps_latest
+    file_list_curated = Hash.new
+
+    # 1. 获取所有原始快照列表
+    raw_snapshots = get_all_snapshots_to_consider
+
+    # 2. 预处理：按 year+file_id 去重，只保留每年最新的
+    snapshots_by_year_url = {}
+
+    raw_snapshots.each do |file_timestamp, file_url|
+      next unless file_url.include?('/')
+      file_id = file_url.split('/')[3..-1].join('/')
+      year = file_timestamp[0..3]
+      key = [year, file_id]
+      if file_id == "" #只保存网站的主页
+        if !snapshots_by_year_url[key] || snapshots_by_year_url[key][0] < file_timestamp
+          snapshots_by_year_url[key] = [file_timestamp, file_url]
+        end
+      end
+    end
+    # puts "snapshots_by_year_url: #{snapshots_by_year_url}"
+  
+    # 3. 按每年最新快照继续原始逻辑
+    snapshots_by_year_url.values.each do |file_timestamp, file_url|
+      # next unless file_url.include?('/')
+      file_id = file_url.split('/')[3..-1].join('/')
+      file_id_and_year = [file_timestamp[0..3], file_id].join('/')
+      file_id_and_year = CGI::unescape file_id_and_year 
+      file_id_and_year = file_id_and_year.tidy_bytes unless file_id_and_year == ""
+      if file_id.nil?
+        puts "Malformed file url, ignoring: #{file_url}"
+      else
+        if match_exclude_filter(file_url)
+          puts "File url matches exclude filter, ignoring: #{file_url}"
+        elsif not match_only_filter(file_url)
+          puts "File url doesn't match only filter, ignoring: #{file_url}"
+        elsif file_list_curated[file_id_and_year]
+          puts "Duplicate file and timestamp combo, ignoring: #{file_id}" if @verbose
+        else
+          file_list_curated[file_id_and_year] = {file_url: file_url, timestamp: file_timestamp}
+        end
+      end
+    end
+    puts "file_list_curated: " + file_list_curated.count.to_s
+    file_list_curated
+  end
 
   def get_file_list_by_timestamp
     if @all_timestamps
       file_list_curated = get_file_list_all_timestamps
+      file_list_curated.map do |file_remote_info|
+        file_remote_info[1][:file_id] = file_remote_info[0]
+        file_remote_info[1]
+      end
+    elsif @all_timestamps_latest
+      file_list_curated = get_file_list_all_timestamps_latest
       file_list_curated.map do |file_remote_info|
         file_remote_info[1][:file_id] = file_remote_info[0]
         file_remote_info[1]
@@ -262,7 +315,8 @@ class WaybackMachineDownloader
       file_path = backup_path + 'index.html'
     elsif file_url[-1] == '/' or not file_path_elements[-1].include? '.'
       dir_path = backup_path + file_path_elements[0..-1].join('/')
-      file_path = backup_path + file_path_elements[0..-1].join('/') + '/index.html'
+      # file_path = backup_path + file_path_elements[0..-1].join('/') + '/index.html'
+      file_path = backup_path + file_path_elements[0..-1].join('/') + '/' + file_timestamp + '_index.html'
     else
       dir_path = backup_path + file_path_elements[0..-2].join('/')
       file_path = backup_path + file_path_elements[0..-1].join('/')
@@ -276,8 +330,14 @@ class WaybackMachineDownloader
         structure_dir_path dir_path
         open(file_path, "wb") do |file|
           begin
-            http.get(URI("https://web.archive.org/web/#{file_timestamp}id_/#{file_url}")) do |body|
+            # http.get(URI("https://web.archive.org/web/#{file_timestamp}id_/#{file_url}")) do |body|
+            http.get(URI("https://web.archive.org/web/#{file_timestamp}/#{file_url}")) do |body|
               file.write(body)
+            
+            file_name = file_url.split('/')[3..-1].join('_')
+            recorded_url = "https://web.archive.org/web/#{file_timestamp}/#{file_url}"
+            File.open(File.join(backup_path, "#{backup_name}.txt"), "a") { |f| f.puts(recorded_url) }
+            # File.open("#{backup_name}.txt", "a") { |f| f.puts(uri) }  # 记录每次访问的URL
             end
           rescue OpenURI::HTTPError => e
             puts "#{file_url} # #{e}"
