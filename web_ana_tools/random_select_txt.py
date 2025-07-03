@@ -1,48 +1,71 @@
 #!/usr/bin/env python3
 """
-随机从 websites 目录中挑选 100 个子文件夹，并将这些文件夹中所有的 .txt 文件
+随机从 websites 目录中挑选指定数量的子文件夹，并将这些文件夹中所有的 .txt 文件
 复制到 web_ana_tools/outputs/random_select 目录下。
 
 用法：
-    python random_select_txt.py
+    python random_select_txt.py --random 100
 """
 
 import os
 import random
 import shutil
 from pathlib import Path
+import argparse
 
-# 项目根目录按此脚本位置推断（即 projects/wayback_machine_downloader）
-BASE_DIR = Path(__file__).resolve().parent.parent / "websites"
-DEST_DIR = Path(__file__).resolve().parent / "outputs" / "random_select"
-# 确保输出目录存在
-DEST_DIR.mkdir(parents=True, exist_ok=True)
+# --------------------------- 主程序入口 ---------------------------
 
-# 获取一级子文件夹列表
-subfolders = [p for p in BASE_DIR.iterdir() if p.is_dir() and p.name != "random_select"]
+def main():
+    """从 BASE_DIR 中随机抽取指定数量的子文件夹，将其中的 .txt 文件复制到 DEST_DIR"""
 
-if len(subfolders) < 100:
-    raise ValueError(f"子文件夹不足 100 个，仅有 {len(subfolders)} 个，无法完成随机抽取。")
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(
+        description="随机抽取指定数量的子文件夹并复制其中的 .txt 文件到 outputs/random_select 目录下"
+    )
+    parser.add_argument(
+        "--random",
+        "-r",
+        type=int,
+        default=100,
+        help="要随机选择的子文件夹数量（默认 100）",
+    )
+    args = parser.parse_args()
+    num_select = args.random
 
-# 随机抽取 1000 个子文件夹
-selected_folders = random.sample(subfolders, 200)
+    # 项目根目录按此脚本位置推断（即 projects/wayback_machine_downloader）
+    BASE_DIR = Path(__file__).resolve().parent.parent / "websites"
+    DEST_DIR = Path(__file__).resolve().parent / "outputs" / "random_select"
+    DEST_DIR.mkdir(parents=True, exist_ok=True)
 
-print("已随机选取以下 100 个子文件夹：")
-for folder in selected_folders:
-    print(" -", folder.name)
+    # 获取一级子文件夹列表
+    subfolders = [p for p in BASE_DIR.iterdir() if p.is_dir() and p.name != "random_select"]
 
-# 复制 .txt 文件
-for folder in selected_folders:
-    for txt_path in folder.rglob("*.txt"):
-        # 目标文件名：仅使用原文件名，如存在重名则跳过
-        dest_name = txt_path.name
-        dest_path = DEST_DIR / dest_name
+    if len(subfolders) < num_select:
+        raise ValueError(
+            f"子文件夹不足 {num_select} 个，仅有 {len(subfolders)} 个，无法完成随机抽取。"
+        )
 
-        if dest_path.exists():
-            # 已存在同名文件，不进行覆盖，直接跳过
-            print(f"重复文件已存在，跳过: {dest_name}")
-            continue
+    # 随机抽取子文件夹
+    selected_folders = random.sample(subfolders, num_select)
 
-        shutil.copy2(txt_path, dest_path)
+    print(f"已随机选取以下 {num_select} 个子文件夹：")
+    for folder in selected_folders:
+        print(" -", folder.name)
 
-print(f"复制完成！所有 .txt 文件已保存至: {DEST_DIR}") 
+    # 复制 .txt 文件
+    for folder in selected_folders:
+        for txt_path in folder.rglob("*.txt"):
+            dest_name = txt_path.name
+            dest_path = DEST_DIR / dest_name
+
+            if dest_path.exists():
+                print(f"重复文件已存在，跳过: {dest_name}")
+                continue
+
+            shutil.copy2(txt_path, dest_path)
+
+    print(f"复制完成！所有 .txt 文件已保存至: {DEST_DIR}")
+
+
+if __name__ == "__main__":
+    main() 
